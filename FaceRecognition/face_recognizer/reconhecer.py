@@ -1,7 +1,13 @@
+import sys
 import cv2
 import face_recognition
 import pickle
 from pathlib import Path
+
+def abrir_camera(indice=0):
+    """DirectShow (CAP_DSHOW) só existe no Windows; no Linux usa V4L2."""
+    backend = cv2.CAP_DSHOW if sys.platform.startswith("win") else cv2.CAP_V4L2
+    return cv2.VideoCapture(indice, backend)
 
 ENCODINGS_PATH = Path("output/encodings.pkl")
 
@@ -12,7 +18,9 @@ with open(ENCODINGS_PATH, "rb") as f:
     known_face_names = data["names"]
 
 
-video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+video_capture = abrir_camera(0)
+if not video_capture.isOpened():
+    raise SystemExit("Não foi possível abrir a webcam (verifique /dev/video0 e o grupo 'video').")
 
 print("Reconhecimento facial iniciado. Pressione 'q' para sair.")
 

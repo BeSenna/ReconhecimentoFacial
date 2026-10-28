@@ -87,5 +87,19 @@ Caso usar pip install dlib não seja o suficiente, você pode tentar o seguinte 
 4. Rode a aplicação detector.py(python detector.py) para treinar o programa. Ela irá detectar os rostos nas fotos postas na pasta "images".
 5. Após detectados os rostos, rode a aplicação reconhecer.py(python reconhecer.py). Ela irá ligar automaticamente a webcam e identificará os rostos que aparecem nela, colocando o nome respectivo a cada rosto. Caso seja um rosto desconhecido, ou seja, que não passou pelo treinamento, o programa colocará "desconhecido" abaixo do rosto.
 
+<br>
+<br>
+<br>
 
+**6. Linux (Ubuntu 26.04)**
 
+No Linux não é preciso Chocolatey, MinGW nem configurar PATH: o compilador e o CMake vêm do apt.
+
+1. Instale as dependências do sistema:
+   `sudo apt update && sudo apt install -y build-essential cmake python3-venv python3-dev libopenblas-dev liblapack-dev git`
+2. Crie e ative um ambiente virtual (o Ubuntu bloqueia `pip install` no Python do sistema):
+   `python3 -m venv .venv && source .venv/bin/activate`
+3. Instale os pacotes (o dlib é compilado na hora, pode levar alguns minutos):
+   `python -m pip install -r FaceRecognition/face_recognizer/requirements.txt`
+4. Garanta acesso à webcam: `sudo usermod -aG video $USER` (depois faça logout/login) e confira se existe `/dev/video0`.
+5. Rode os scripts de dentro da pasta `FaceRecognition/face_recognizer`, como descrito no item 5.
