@@ -1,0 +1,15 @@
+# Dados biométricos e chaves NUNCA vão para o repositório (LGPD: dado pessoal sensível)
+FaceRecognition/face_recognizer/images/
+FaceRecognition/face_recognizer/output/
+FaceRecognition/face_recognizer/models/
+*.pkl
+*.db
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
