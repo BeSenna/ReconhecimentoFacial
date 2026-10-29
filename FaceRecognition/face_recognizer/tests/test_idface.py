@@ -116,6 +116,24 @@ def test_servidor_chave_nao_e_oraculo(sistema, chave, templates):
     assert "pontuacao" not in log
 
 
+def test_token_de_remocao_maior_que_n(sistema, templates):
+    """Com chave de 1024 bits o template (2·512 bits) nem sempre cabe num
+    ciphertext: o token é dividido e a remoção continua exata."""
+    _, base, _ = sistema
+    pos = base.cadastrar(list(templates[:12]))
+    tam = base.pk.bytes_cifra
+    tokens = {(b, s): len(tk) // tam for b, s, tk in base._db.execute("SELECT * FROM slots")}
+    divididos = [i for i, p in enumerate(pos) if tokens[p] == 2]
+    assert divididos, "nenhum token precisou ser dividido"
+    for i in divididos[:3]:
+        base.remover(*pos[i])
+    for i in set(range(12)) - set(divididos[:3]):
+        assert base.identificar(templates[i], BETA)[:2] == pos[i]
+    novo = base.cadastrar([templates[20]])
+    assert base.identificar(templates[20], BETA)[:2] == novo[0]
+    assert base.identificar(templates[20], BETA)[2] == BETA  # pontuação exata
+
+
 def test_limite_de_requisicoes(chave):
     params = parametros_publicos(chave.publica, 512, ALFA, BETA)
     srv = ServidorChave(chave, {**params, "tau": {BETA: 1}}, limite_por_minuto=3)

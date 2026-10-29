@@ -13,7 +13,7 @@ import numpy as np
 
 from . import transformacao as tr
 from .paillier import ChavePublica, _mpz, liberar_gil
-from .servidor_chave import hash_token
+from .servidor_chave import bits_por_bloco_token, hash_token
 
 _ESQUEMA = """
 CREATE TABLE IF NOT EXISTS meta (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
@@ -80,6 +80,17 @@ class BaseIDFace:
         with ThreadPoolExecutor(self._trab, initializer=liberar_gil) as ex:
             return list(ex.map(self.pk.cifrar, valores, chunksize=32))
 
+    def _cifrar_token(self, valor: int) -> bytes:
+        """Token de remoção: o template (2·d bits) dividido em pedaços menores
+        que n, cada um cifrado. Com chave de 2048 bits cabe num ciphertext só."""
+        bits = bits_por_bloco_token(self.pk.n)
+        partes = []
+        while True:
+            partes.append(self.pk.para_bytes(self.pk.cifrar(valor & ((1 << bits) - 1))))
+            valor >>= bits
+            if not valor:
+                return b"".join(partes)
+
     def _slots_ocupados(self) -> dict[int, set[int]]:
         ocup: dict[int, set[int]] = {}
         for b, s in self._db.execute("SELECT bloco, slot FROM slots"):
@@ -120,14 +131,13 @@ class BaseIDFace:
             delta = deltas.setdefault(b, np.zeros(2 * self.d, dtype=object))
             delta[: self.d] += mais.astype(object) * peso
             delta[self.d:] += menos.astype(object) * peso
-            tokens.append(self.pk.cifrar(tr.empacotar_token(t)))
+            tokens.append(self._cifrar_token(tr.empacotar_token(t)))
         for b, delta in deltas.items():
             self._aplicar_delta(b, delta)
         hashes = []
         for (b, s), tok in zip(posicoes, tokens):
-            bts = self.pk.para_bytes(tok)
-            self._db.execute("INSERT INTO slots VALUES (?, ?, ?)", (b, s, bts))
-            hashes.append(hash_token(tok, self.pk.bytes_cifra))
+            self._db.execute("INSERT INTO slots VALUES (?, ?, ?)", (b, s, tok))
+            hashes.append(hash_token(tok))
         self.cliente.registrar(hashes)
         self._db.commit()
         return posicoes

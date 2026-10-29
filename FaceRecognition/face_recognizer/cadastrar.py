@@ -23,12 +23,11 @@ import numpy as np
 from facerec import config
 from facerec.camera import abrir_camera
 from facerec.galeria import Galeria
+from facerec.cadastro_interativo import montar_template
 from facerec.identificacao import criar_identificador
 from facerec.pipeline import Analisador
-from facerec.reconhecimento import normalizar
 
 EXTENSOES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-COERENCIA_MIN = 0.30  # amostras com similaridade menor que isso com a mediana são descartadas
 
 
 def fotos_por_pessoa(pasta: Path) -> dict[str, list[Path]]:
@@ -39,20 +38,6 @@ def fotos_por_pessoa(pasta: Path) -> dict[str, list[Path]]:
         elif arq.suffix.lower() in EXTENSOES:
             grupos[arq.stem.split("_")[0]].append(arq)
     return {k: v for k, v in grupos.items() if v}
-
-
-def template_de(embeddings: list[np.ndarray], nome: str) -> tuple[np.ndarray | None, int]:
-    if not embeddings:
-        return None, 0
-    E = np.stack(embeddings)
-    if len(E) >= 3:
-        referencia = normalizar(np.median(E, axis=0))
-        sims = E @ referencia
-        if np.any(sims < COERENCIA_MIN):
-            print(f"   ⚠️  {int(np.sum(sims < COERENCIA_MIN))} foto(s) de {nome} parecem ser de outra "
-                  "pessoa e foram descartadas")
-        E = E[sims >= COERENCIA_MIN]
-    return normalizar(E.mean(axis=0)), len(E)
 
 
 def embeddings_de_fotos(analisador: Analisador, fotos: list[Path]) -> list[np.ndarray]:
@@ -149,7 +134,7 @@ def main():
 
     itens = []
     for nome, embs in fontes.items():
-        tpl, n = template_de(embs, nome)
+        tpl, n = montar_template(embs, nome)
         if tpl is None:
             print(f"❌ {nome}: nenhuma amostra aprovada — não cadastrado")
             continue

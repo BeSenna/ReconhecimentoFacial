@@ -23,9 +23,14 @@ from . import transformacao
 from .paillier import ChaveSecreta
 
 
-def hash_token(cifra: int, largura: int) -> str:
-    """Hash do token (ciphertext) serializado em largura fixa."""
-    return hashlib.sha256(int(cifra).to_bytes(largura, "big")).hexdigest()
+def hash_token(dados: bytes) -> str:
+    """Hash do token de remoção (um ou mais ciphertexts em largura fixa)."""
+    return hashlib.sha256(dados).hexdigest()
+
+
+def bits_por_bloco_token(n: int) -> int:
+    """Bits de texto claro por ciphertext do token (sempre < n)."""
+    return n.bit_length() - 1
 
 
 class ErroServidor(Exception):
@@ -108,7 +113,10 @@ class ServidorChave:
         return {"ok": True}
 
     def revelar(self, token_hex: str) -> dict:
-        h = hash_token(int(token_hex, 16), self.sk.publica.bytes_cifra)
+        if len(token_hex) % 2:
+            token_hex = "0" + token_hex
+        dados = bytes.fromhex(token_hex)
+        h = hash_token(dados)
         with self._trava:
             if h not in self._tokens:
                 self._auditar({"op": "revelar", "negado": True})
@@ -116,7 +124,12 @@ class ServidorChave:
             self._tokens.discard(h)
             self._salvar_tokens()
         self._auditar({"op": "revelar", "token": h[:12]})
-        return {"valor": format(self.sk.decifrar(int(token_hex, 16)), "x")}
+        tam = self.sk.publica.bytes_cifra
+        bits = bits_por_bloco_token(self.sk.publica.n)
+        valor = 0
+        for i in range(0, len(dados), tam):
+            valor |= self.sk.decifrar(int.from_bytes(dados[i:i + tam], "big")) << (bits * (i // tam))
+        return {"valor": format(valor, "x")}
 
 
 def _handler(servidor: ServidorChave, token_id: str | None, token_admin: str | None):

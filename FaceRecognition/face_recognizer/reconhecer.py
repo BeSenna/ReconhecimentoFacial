@@ -3,6 +3,8 @@
 Por trilha de rosto: qualidade → embedding → vivacidade → identificação
 (AES ou IDFace) → votação temporal. Com --desafio, após reconhecer uma pessoa
 viva pede que ela vire o rosto na ordem sorteada antes de liberar o acesso.
+Com --cadastro aparece um botão com ícone de câmera no canto da janela:
+clique nele para cadastrar a pessoa que está na frente da câmera.
 Pressione 'q' para sair.
 """
 
@@ -15,6 +17,7 @@ from collections import Counter
 import cv2
 
 from facerec import config
+from facerec.cadastro_interativo import CadastroInterativo
 from facerec.camera import abrir_camera
 from facerec.galeria import Galeria
 from facerec.identificacao import criar_identificador
@@ -66,13 +69,21 @@ def main():
     ap.add_argument("--sem-vivacidade", action="store_true")
     ap.add_argument("--desafio", action="store_true", help="exige desafio ativo (virar o rosto)")
     ap.add_argument("--reconhecer-a-cada", type=int, default=config.RASTREIO_RECONHECER_A_CADA)
+    ap.add_argument("--cadastro", action="store_true",
+                    help="mostra o botão de câmera para cadastrar pessoas pela janela")
     args = ap.parse_args()
+    if args.cadastro and args.sem_janela:
+        sys.exit("--cadastro precisa da janela (não use com --sem-janela).")
 
     galeria = Galeria()
     modelo = galeria.meta("modelo")
-    if modelo is None:
-        sys.exit("Galeria vazia. Cadastre pessoas primeiro: python cadastrar.py --consentimento ...")
+    if modelo is None and not args.cadastro:
+        sys.exit("Galeria vazia. Cadastre pessoas primeiro: python cadastrar.py --consentimento ... "
+                 "ou use python reconhecer.py --cadastro")
     analisador = Analisador(modelo=modelo, vivacidade=not args.sem_vivacidade)
+    if modelo is None:
+        modelo = analisador.nome_modelo
+        galeria.verificar_modelo(modelo, analisador.reconhecedor.dimensao, "aes")
     ident = criar_identificador(galeria, modelo)
     usar_viv = analisador.vivacidade is not None
     if not args.sem_vivacidade and not usar_viv:
@@ -84,6 +95,14 @@ def main():
         sys.exit("Não foi possível abrir a fonte de vídeo (verifique /dev/video0 e o grupo 'video').")
     gravador = None
     rastreador = Rastreador()
+    cadastro = None
+    if args.cadastro:
+        # após cadastrar, as trilhas recomeçam para a pessoa nova ser reconhecida já
+        cadastro = CadastroInterativo(analisador, ident, galeria,
+                                      ao_cadastrar=lambda _: rastreador.trilhas.clear())
+        cv2.namedWindow("Reconhecimento Facial", cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
+        cv2.setMouseCallback("Reconhecimento Facial", cadastro.mouse)
+        print("Clique no ícone de câmera (canto superior direito) para cadastrar alguém.")
     t_anterior, fps = time.monotonic(), 0.0
     frames = 0
     resumo = Counter()
@@ -95,6 +114,14 @@ def main():
                 break
             continue
         frames += 1
+        if cadastro is not None:
+            cadastro.processar(frame)
+        if cadastro is not None and cadastro.ativo:
+            tela = cv2.flip(frame, 1)
+            cadastro.desenhar(tela)
+            cv2.imshow("Reconhecimento Facial", tela)
+            cadastro.tecla(cv2.waitKeyEx(1))
+            continue
         visiveis = rastreador.atualizar(analisador.detector.detectar(frame))
 
         pendentes = [t for t in visiveis if t.desde_reconhecimento >= args.reconhecer_a_cada]
@@ -155,9 +182,11 @@ def main():
                 gravador = cv2.VideoWriter(args.saida, cv2.VideoWriter_fourcc(*"mp4v"),
                                            cap.get(cv2.CAP_PROP_FPS) or 25, (tela.shape[1], tela.shape[0]))
             gravador.write(tela)
+        if cadastro is not None:
+            cadastro.desenhar(tela)
         if not args.sem_janela:
             cv2.imshow("Reconhecimento Facial", tela)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if cv2.waitKeyEx(1) & 0xFF == ord("q"):
                 break
 
     cap.release()

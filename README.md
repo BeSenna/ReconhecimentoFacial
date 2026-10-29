@@ -50,7 +50,7 @@ cd FaceRecognition/face_recognizer
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
 python baixar_modelos.py
-python -m pip install pytest && python -m pytest tests      # devem passar 27 testes
+python -m pip install pytest && python -m pytest tests      # devem passar 34 testes
 python teste_webcam.py
 ```
 
@@ -91,6 +91,20 @@ python reconhecer.py                 # webcam
 python reconhecer.py --desafio       # exige virar o rosto na ordem sorteada antes de liberar
 python reconhecer.py --video arquivo.mp4 --sem-janela --saida anotado.mp4
 ```
+
+#### Cadastro pelo ícone da câmera
+
+```bash
+python reconhecer.py --cadastro
+```
+
+Aparece um botão com ícone de câmera no canto superior direito da janela. Clique nele e:
+
+1. digite o nome (Enter confirma, Esc cancela a qualquer momento);
+2. confirme o consentimento para o cadastro biométrico, com **S** ou **N**. Com N, nada é gravado;
+3. olhe para a câmera e mova levemente o rosto. A barra verde mostra as 8 amostras sendo capturadas.
+
+As amostras passam pelo mesmo controle de qualidade e de vivacidade do `cadastrar.py`: fotos ou telas são recusadas, e só uma pessoa pode estar na frente da câmera. Ao terminar, a pessoa já passa a ser reconhecida e o consentimento fica registrado com data e hora. Recadastrar o mesmo nome substitui o cadastro anterior. O botão só aparece com `--cadastro`, para que num uso real (como uma portaria) ninguém consiga se cadastrar sozinho.
 
 Rótulos possíveis: nome + similaridade, `Desconhecido`, `verificando...`, o motivo de qualidade (ex.: `rosto muito de lado`) ou `ATAQUE?` quando a vivacidade média da trilha fica abaixo de 50%.
 
@@ -184,7 +198,7 @@ python -m pip install pytest
 python -m pytest tests
 ```
 
-São 27 testes: Paillier, correção exata das pontuações cifradas do IDFace contra o texto claro, remoção e reuso de slot, proteção contra oráculo, HTTP com autenticação, galeria cifrada (adulteração, troca de linhas, retenção), rastreamento, desafio ativo, alinhamento e embeddings.
+São 34 testes: Paillier, correção exata das pontuações cifradas do IDFace contra o texto claro, remoção e reuso de slot, proteção contra oráculo, HTTP com autenticação, galeria cifrada (adulteração, troca de linhas, retenção), rastreamento, desafio ativo, cadastro pelo ícone da câmera, alinhamento e embeddings.
 
 ## Configuração
 
